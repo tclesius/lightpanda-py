@@ -16,7 +16,7 @@ uv add lightpanda-py
 
 ```python
 import lightpanda
-
+# Spin up an ephemeral Lightpanda instance for this fetch
 response = lightpanda.fetch("https://example.com")
 print(response.text)
 
