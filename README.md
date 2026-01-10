@@ -1,6 +1,6 @@
 # lightpanda-py
 
-Python bindings for [Lightpanda](https://github.com/lightpanda-io/browser), a fast headless browser for AI agents and web automation.
+Embedded [Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation.
 
 ## Installation
 
