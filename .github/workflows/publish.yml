@@ -31,7 +31,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p src/lightpanda/bin
-          gh release download "${{ github.ref_name }}" \
+          gh release download "${GITHUB_REF_NAME#v}" \
             --repo lightpanda-io/browser \
             --pattern "${{ matrix.binary }}" \
             --dir src/lightpanda/bin/
