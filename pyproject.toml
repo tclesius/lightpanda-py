@@ -7,6 +7,11 @@ authors = [{ name = "Tom Clesius", email = "tomclesius@gmail.com" }]
 requires-python = ">=3.13"
 dependencies = []
 
+[project.urls]
+Homepage = "https://github.com/tclesius/lightpanda-py"
+Repository = "https://github.com/tclesius/lightpanda-py"
+Issues = "https://github.com/tclesius/lightpanda-py/issues"
+
 [build-system]
 requires = ["hatchling>=1.21.0"]
 build-backend = "hatchling.build"
