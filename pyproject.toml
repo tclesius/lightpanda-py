@@ -1,11 +1,19 @@
 [project]
 name = "lightpanda-py"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Python wrapper for Lightpanda browser with CDP server and Playwright integration for lightweight web scraping and automation"
 readme = "README.md"
 authors = [{ name = "Tom Clesius", email = "tomclesius@gmail.com" }]
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 
 [project.urls]
 Homepage = "https://github.com/tclesius/lightpanda-py"
@@ -13,13 +21,13 @@ Repository = "https://github.com/tclesius/lightpanda-py"
 Issues = "https://github.com/tclesius/lightpanda-py/issues"
 
 [build-system]
-requires = ["hatchling>=1.21.0"]
+requires = ["hatchling>=1.21.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.hooks.custom]
+[tool.hatch.version]
+source = "vcs"
 
-[tool.hatch.build.targets.sdist]
-only-include = ["src/lightpanda", "hatch_build.py", "README.md"]
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightpanda"]

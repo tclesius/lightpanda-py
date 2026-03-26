@@ -5,13 +5,57 @@ on:
     types: [published]
 
 jobs:
+  build:
+    name: Build wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: lightpanda-x86_64-linux
+          - os: ubuntu-24.04-arm
+            binary: lightpanda-aarch64-linux
+          - os: macos-latest
+            binary: lightpanda-aarch64-macos
+          - os: macos-13
+            binary: lightpanda-x86_64-macos
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Download Lightpanda binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p src/lightpanda/bin
+          gh release download "${{ github.ref_name }}" \
+            --repo lightpanda-io/browser \
+            --pattern "${{ matrix.binary }}" \
+            --dir src/lightpanda/bin/
+          chmod +x "src/lightpanda/bin/${{ matrix.binary }}"
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.os }}
+          path: dist/*.whl
+
   publish:
+    needs: build
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uv build --sdist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: dist/
+
       - uses: pypa/gh-action-pypi-publish@release/v1
