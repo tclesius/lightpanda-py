@@ -10,7 +10,7 @@ pip install lightpanda-py
 uv add lightpanda-py
 ```
 
-No extra setup — the Lightpanda binary is bundled in the package.
+No extra setup - the Lightpanda binary is bundled in the package.
 
 ## Usage
 
