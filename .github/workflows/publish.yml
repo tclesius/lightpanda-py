@@ -13,10 +13,13 @@ jobs:
         include:
           - os: ubuntu-latest
             binary: lightpanda-x86_64-linux
+            platform_tag: manylinux_2_35_x86_64
           - os: ubuntu-24.04-arm
             binary: lightpanda-aarch64-linux
+            platform_tag: manylinux_2_35_aarch64
           - os: macos-latest
             binary: lightpanda-aarch64-macos
+            platform_tag: macosx_11_0_arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +40,9 @@ jobs:
 
       - name: Build wheel
         run: uv build --wheel
+
+      - name: Retag wheel
+        run: uv tool run wheel tags --python-tag py3 --abi-tag none --platform-tag ${{ matrix.platform_tag }} --remove dist/*.whl
 
       - uses: actions/upload-artifact@v4
         with:
