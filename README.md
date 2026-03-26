@@ -10,19 +10,32 @@ pip install lightpanda-py
 uv add lightpanda-py
 ```
 
+No extra setup — the Lightpanda binary is bundled in the package.
+
 ## Usage
 
-### Quick fetch
+### Fetch
+
+Spin up an ephemeral browser to fetch a page:
 
 ```python
 import lightpanda
-# Spin up an ephemeral Lightpanda instance for this fetch
+
 response = lightpanda.fetch("https://example.com")
 print(response.text)
 
 # JSON APIs
 response = lightpanda.fetch("https://httpbin.org/ip")
 data = response.json()
+
+# Markdown output
+response = lightpanda.fetch("https://example.com", dump="markdown")
+
+# Strip JS/CSS from output
+response = lightpanda.fetch("https://example.com", strip_mode="js,css")
+
+# Wait for network idle before dump
+response = lightpanda.fetch("https://example.com", wait_until="networkidle")
 ```
 
 ### CDP Server
@@ -56,6 +69,30 @@ with sync_playwright() as p:
     browser.close()
 
 proc.kill()
+```
+
+### MCP Server
+
+Start a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio:
+
+```python
+import lightpanda, json
+
+proc = lightpanda.mcp()
+
+proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\n')
+proc.stdin.flush()
+print(json.loads(proc.stdout.readline()))  # list of available tools
+
+proc.kill()
+```
+
+### Version
+
+```python
+import lightpanda
+
+print(lightpanda.version())
 ```
 
 ## License
