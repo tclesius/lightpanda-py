@@ -160,7 +160,7 @@ def mcp(
     Example:
         >>> import json
         >>> proc = lightpanda.mcp()
-        >>> proc.stdin.write((json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}) + "\\n").encode())
+        >>> proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\\n')
         >>> proc.stdin.flush()
         >>> print(json.loads(proc.stdout.readline()))
         >>> proc.kill()
