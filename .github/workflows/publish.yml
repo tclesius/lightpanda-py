@@ -17,8 +17,6 @@ jobs:
             binary: lightpanda-aarch64-linux
           - os: macos-latest
             binary: lightpanda-aarch64-macos
-          - os: macos-13
-            binary: lightpanda-x86_64-macos
     steps:
       - uses: actions/checkout@v4
         with:
