@@ -53,6 +53,19 @@ proc = lightpanda.serve(host="127.0.0.1", port=9222)
 proc.kill()
 ```
 
+Write browser logs to files:
+
+```python
+import lightpanda
+
+stdout = open("lightpanda.out.log", "w")
+stderr = open("lightpanda.err.log", "w")
+
+proc = lightpanda.serve(stdout=stdout, stderr=stderr)
+
+proc.kill()
+```
+
 With Playwright:
 
 ```python
@@ -94,6 +107,30 @@ import lightpanda
 
 print(lightpanda.version())
 ```
+
+## Development
+
+The bundled Lightpanda browser version is pinned in `.browser-version`.
+
+Download the pinned browser for local development:
+
+```bash
+scripts/get-browser
+```
+
+By default this downloads the macOS arm64 binary. To use another asset or browser version:
+
+```bash
+scripts/get-browser lightpanda-x86_64-linux
+scripts/get-browser lightpanda-aarch64-macos 0.2.9
+```
+
+Available raw browser assets:
+
+- `lightpanda-aarch64-macos` - macOS arm64
+- `lightpanda-x86_64-macos` - macOS x86_64
+- `lightpanda-aarch64-linux` - Linux arm64
+- `lightpanda-x86_64-linux` - Linux x86_64
 
 ## License
 

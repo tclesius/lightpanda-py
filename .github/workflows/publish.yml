@@ -30,13 +30,7 @@ jobs:
       - name: Download Lightpanda binary
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p src/lightpanda/bin
-          gh release download "${GITHUB_REF_NAME#v}" \
-            --repo lightpanda-io/browser \
-            --pattern "${{ matrix.binary }}" \
-            --dir src/lightpanda/bin/
-          chmod +x "src/lightpanda/bin/${{ matrix.binary }}"
+        run: scripts/get-browser "${{ matrix.binary }}"
 
       - name: Build wheel
         run: uv build --wheel

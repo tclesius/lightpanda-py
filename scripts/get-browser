@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Usage: scripts/get-browser [asset] [version]
+# Defaults: asset=lightpanda-aarch64-macos, version=$(cat .browser-version)
+#
+# Available assets:
+# - lightpanda-aarch64-macos  macOS arm64
+# - lightpanda-x86_64-macos   macOS x86_64
+# - lightpanda-aarch64-linux  Linux arm64
+# - lightpanda-x86_64-linux   Linux x86_64
+
+set -euo pipefail
+
+asset="${1:-lightpanda-aarch64-macos}"
+version="${2:-$(cat .browser-version)}"
+
+mkdir -p src/lightpanda/bin
+rm -f src/lightpanda/bin/lightpanda-*
+
+gh release download "$version" \
+  --repo lightpanda-io/browser \
+  --pattern "$asset" \
+  --dir src/lightpanda/bin
+
+chmod +x "src/lightpanda/bin/$asset"
