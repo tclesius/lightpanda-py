@@ -1,7 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any, IO
 import os
 
 __all__ = ["fetch", "serve", "mcp", "version", "BINARY"]
@@ -101,6 +101,8 @@ def serve(
     log_level: Literal["debug", "info", "warning", "error"] = "error",
     http_proxy: str | None = None,
     http_timeout: int | None = None,
+    stdout: None | int | IO[Any] = None,
+    stderr: None | int | IO[Any] = None,
 ) -> subprocess.Popen:
     """
     Start Lightpanda browser process with CDP server.
@@ -115,7 +117,8 @@ def serve(
         log_level: Logging level (default: "error")
         http_proxy: HTTP proxy URL (optional)
         http_timeout: HTTP request timeout in seconds (optional)
-
+        stdout: Standard output file handle (optional)
+        stderr: Standard error file handle (optional)
     Returns:
         subprocess.Popen: The process object for the Lightpanda browser
 
@@ -136,7 +139,7 @@ def serve(
         http_proxy=http_proxy,
         http_timeout=http_timeout,
     )
-    proc = subprocess.Popen(cmd)
+    proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
     print(f"🐼 Running Lightpanda's CDP server... {{ pid: {proc.pid} }}")
     return proc
 
