@@ -96,15 +96,15 @@ class Flag:
 
 
 class Command:
-    def __init__(self, binary: str, *args: str, **options: Any) -> None:
+    def __init__(self, binary: str, *args: str, **kwargs: Any) -> None:
         self.binary = binary
         self.args = args
-        self.options = options
+        self.kwargs = kwargs
 
     @property
     def argv(self) -> list[str]:
         cmd = [self.binary, *self.args]
-        for key, value in self.options.items():
+        for key, value in self.kwargs.items():
             flag = "--" + key.replace("_", "-")
             if isinstance(value, bool):
                 cmd += Flag(flag, value)
@@ -139,7 +139,7 @@ def fetch(
     log_level: LogLevel = "error",
     http_proxy: str | None = None,
     http_timeout: int | None = None,
-    **options: Any,
+    **kwargs: Any,
 ) -> Result:
     """
     Fetch a page with an ephemeral Lightpanda browser.
@@ -164,7 +164,7 @@ def fetch(
         log_level: Logging level (default: "error")
         http_proxy: HTTP proxy URL (optional)
         http_timeout: HTTP request timeout in milliseconds (optional)
-        **options: Any other `lightpanda fetch` CLI option, e.g. json=True, user_agent="...",
+        **kwargs: Any other `lightpanda fetch` CLI option, e.g. json=True, user_agent="...",
             http_header=["X-A: 1", "X-B: 2"], cookie="cookies.json", obey_robots=True.
             Underscores become dashes, True adds a bare flag and lists repeat the flag.
 
@@ -183,7 +183,7 @@ def fetch(
         BINARY,
         "fetch",
         *urls,
-        json=options.pop("json", len(urls) > 1),
+        json=kwargs.pop("json", len(urls) > 1),
         dump=dump,
         strip_mode=strip_mode,
         with_base=with_base,
@@ -200,12 +200,12 @@ def fetch(
         log_level=log_level,
         http_proxy=http_proxy,
         http_timeout=http_timeout,
-        **options,
+        **kwargs,
     )
     return cmd.run()
 
 
-def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Result:
+def run(script: str, *, log_level: LogLevel = "error", **kwargs: Any) -> Result:
     """
     Run a PandaScript and return what it printed.
 
@@ -217,7 +217,7 @@ def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Result
         ... ''')
         >>> result.text
     """
-    cmd = Command(BINARY, "run", "-", log_level=log_level, **options)
+    cmd = Command(BINARY, "run", "-", log_level=log_level, **kwargs)
     return cmd.run(script.encode())
 
 
@@ -237,7 +237,7 @@ def agent(
     trace_results: bool = False,
     verbosity: Verbosity | None = None,
     log_level: LogLevel = "error",
-    **options: Any,
+    **kwargs: Any,
 ) -> Result:
     """
     Let an AI agent browse to complete a task and return its answer.
@@ -259,7 +259,7 @@ def agent(
         trace_results: Also write each tool result to the trace file (default: False)
         verbosity: Stderr chatter — 'low', 'medium', 'high' (optional)
         log_level: Logging level (default: "error")
-        **options: Any other `lightpanda agent` CLI option, e.g. obey_robots=True.
+        **kwargs: Any other `lightpanda agent` CLI option, e.g. obey_robots=True.
 
     Example:
         >>> result = lightpanda.agent("What is the top story?", url="https://news.ycombinator.com")
@@ -282,7 +282,7 @@ def agent(
         trace_results=trace_results,
         verbosity=verbosity,
         log_level=log_level,
-        **options,
+        **kwargs,
     )
     return cmd.run()
 
@@ -317,7 +317,7 @@ def serve(
     http_timeout: int | None = None,
     stdout: None | int | IO[Any] = None,
     stderr: None | int | IO[Any] = None,
-    **options: Any,
+    **kwargs: Any,
 ) -> subprocess.Popen:
     """
     Start Lightpanda browser process with CDP server.
@@ -336,7 +336,7 @@ def serve(
         http_timeout: HTTP request timeout in milliseconds (optional)
         stdout: Standard output file handle (optional)
         stderr: Standard error file handle (optional)
-        **options: Any other `lightpanda serve` CLI option, e.g. user_agent="...",
+        **kwargs: Any other `lightpanda serve` CLI option, e.g. user_agent="...",
             block_urls=["*doubleclick*"], watchdog_ms=60000.
     Returns:
         subprocess.Popen: The process object for the Lightpanda browser
@@ -360,7 +360,7 @@ def serve(
         log_level=log_level,
         http_proxy=http_proxy,
         http_timeout=http_timeout,
-        **options,
+        **kwargs,
     )
     return cmd.spawn(stdout=stdout, stderr=stderr)
 
@@ -376,7 +376,7 @@ def mcp(
     stdin: None | int | IO[Any] = None,
     stdout: None | int | IO[Any] = None,
     stderr: None | int | IO[Any] = None,
-    **options: Any,
+    **kwargs: Any,
 ) -> subprocess.Popen:
     """
     Start Lightpanda MCP (Model Context Protocol) server, over stdio by default or over HTTP when `port` is set.
@@ -391,7 +391,7 @@ def mcp(
         stdin: Standard input file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
         stdout: Standard output file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
         stderr: Standard error file handle (optional)
-        **options: Any other `lightpanda mcp` CLI option, e.g. http_session_timeout=300.
+        **kwargs: Any other `lightpanda mcp` CLI option, e.g. http_session_timeout=300.
 
     Returns:
         subprocess.Popen: The process object for the MCP server
@@ -413,6 +413,6 @@ def mcp(
         log_level=log_level,
         http_proxy=http_proxy,
         http_timeout=http_timeout,
-        **options,
+        **kwargs,
     )
     return cmd.spawn(stdin=stdin, stdout=stdout, stderr=stderr)
