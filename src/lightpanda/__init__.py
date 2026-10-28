@@ -116,8 +116,8 @@ class Command:
         proc = subprocess.run(self.argv, input=input, capture_output=True, check=True)
         return Result(proc.stdout, proc.stderr)
 
-    def spawn(self, **popen: Any) -> subprocess.Popen:
-        return subprocess.Popen(self.argv, **popen)
+    def popen(self, **kwargs: Any) -> subprocess.Popen:
+        return subprocess.Popen(self.argv, **kwargs)
 
 
 def fetch(
@@ -362,7 +362,7 @@ def serve(
         http_timeout=http_timeout,
         **kwargs,
     )
-    return cmd.spawn(stdout=stdout, stderr=stderr)
+    return cmd.popen(stdout=stdout, stderr=stderr)
 
 
 def mcp(
@@ -415,4 +415,4 @@ def mcp(
         http_timeout=http_timeout,
         **kwargs,
     )
-    return cmd.spawn(stdin=stdin, stdout=stdout, stderr=stderr)
+    return cmd.popen(stdin=stdin, stdout=stdout, stderr=stderr)
