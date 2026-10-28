@@ -102,3 +102,12 @@ def test_mcp_stdio(spawn, port):
 def test_mcp_http(spawn, port):
     spawn(lightpanda.mcp(host="127.0.0.1", port=port))
     assert request_json(f"http://127.0.0.1:{port}/mcp", TOOLS_LIST)["result"]["tools"]
+
+
+def test_run(url):
+    script = f'''
+        const page = new Page();
+        await page.goto("{url}");
+        console.log(await page.evaluate("document.querySelector('h1').textContent"));
+    '''
+    assert lightpanda.run(script).text.strip() == "Hello"

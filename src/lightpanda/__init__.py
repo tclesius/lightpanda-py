@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal, Any, IO
 import os
 
-__all__ = ["fetch", "serve", "mcp", "version", "Response", "LightpandaError", "BINARY"]
+__all__ = ["fetch", "serve", "mcp", "run", "version", "Response", "LightpandaError", "BINARY"]
 
 os.environ.setdefault("LIGHTPANDA_DISABLE_TELEMETRY", "true")
 
@@ -50,8 +50,8 @@ def build_cmd(*args, **options):
     return cmd
 
 
-def run_cmd(cmd: list[str]) -> bytes:
-    result = subprocess.run(cmd, capture_output=True)
+def run_cmd(cmd: list[str], input: bytes | None = None) -> bytes:
+    result = subprocess.run(cmd, input=input, capture_output=True)
     if result.returncode:
         raise LightpandaError(result.returncode, result.stdout, result.stderr.decode(errors="replace"))
     return result.stdout
@@ -285,6 +285,21 @@ def mcp(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr
         )
     return subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+
+
+def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Response:
+    """
+    Run a PandaScript and return what it printed.
+
+    Example:
+        >>> response = lightpanda.run('''
+        ...     const page = new Page();
+        ...     await page.goto("https://example.com");
+        ...     console.log(await page.evaluate("document.title"));
+        ... ''')
+        >>> response.text
+    """
+    return Response(run_cmd(build_cmd("run", "-", log_level=log_level, **options), script.encode()))
 
 
 def version() -> str:
