@@ -1,4 +1,5 @@
 import json
+import subprocess
 import time
 import urllib.request
 from pathlib import Path
@@ -45,7 +46,7 @@ def test_version():
 
 
 def test_fetch(url):
-    response = lightpanda.fetch(
+    result = lightpanda.fetch(
         url,
         dump="markdown",
         strip_mode=["js", "css"],
@@ -62,7 +63,7 @@ def test_fetch(url):
         fail_on_http_error=True,
         http_timeout=5000,
     )
-    assert "Hello" in response.text
+    assert "Hello" in result.text
 
 
 def test_fetch_multiple_urls(url):
@@ -70,9 +71,8 @@ def test_fetch_multiple_urls(url):
 
 
 def test_fetch_http_error(url):
-    with pytest.raises(lightpanda.LightpandaError) as exc_info:
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
         lightpanda.fetch(f"{url}/missing", fail_on_http_error=True)
-    assert isinstance(exc_info.value, RuntimeError)
     assert exc_info.value.returncode == 22
 
 
@@ -93,7 +93,7 @@ def test_serve(spawn, port):
 
 
 def test_mcp_stdio(spawn, port):
-    proc = spawn(lightpanda.mcp(http_timeout=5000, cdp_port=port))
+    proc = spawn(lightpanda.mcp(http_timeout=5000, cdp_port=port, stdin=subprocess.PIPE, stdout=subprocess.PIPE))
     proc.stdin.write(TOOLS_LIST + b"\n")
     proc.stdin.flush()
     assert json.loads(proc.stdout.readline())["result"]["tools"]
@@ -113,11 +113,11 @@ def test_run(url):
     assert lightpanda.run(script).text.strip() == "Hello"
 
 
-def test_agent(tmp_path, monkeypatch):
+def test_agent(tmp_path, monkeypatch, capfd):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     attachment = tmp_path / "notes.txt"
     attachment.write_text("notes")
-    with pytest.raises(lightpanda.LightpandaError) as exc_info:
+    with pytest.raises(subprocess.CalledProcessError):
         lightpanda.agent(
             "Say hi",
             provider="openai_compatible",
@@ -133,7 +133,7 @@ def test_agent(tmp_path, monkeypatch):
             trace_results=True,
             verbosity="low",
         )
-    assert "Missing API key" in exc_info.value.stderr
+    assert "Missing API key" in capfd.readouterr().err
 
 
 def test_version_check():

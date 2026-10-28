@@ -15,8 +15,8 @@ pip install lightpanda-py
 ```python
 import lightpanda
 
-response = lightpanda.fetch("https://example.com", dump="markdown")
-print(response.text)
+result = lightpanda.fetch("https://example.com", dump="markdown")
+print(result.text)
 ```
 
 ### Output formats
@@ -32,7 +32,7 @@ data = lightpanda.fetch("https://httpbin.org/ip").json()
 meta = lightpanda.fetch("https://example.com", dump="structured_data").json()
 
 # Text-only rendering as PNG or PDF
-png = lightpanda.fetch("https://example.com", dump="png").content
+png = lightpanda.fetch("https://example.com", dump="png").bytes
 ```
 
 ### Waiting and stripping
@@ -71,7 +71,7 @@ Underscores become dashes, `True` adds a bare flag, and lists repeat the flag:
 ```python
 import lightpanda
 
-response = lightpanda.fetch(
+result = lightpanda.fetch(
     "https://example.com",
     http_header=["Authorization: Bearer token"],  # --http-header ...
     user_agent_suffix="my-crawler",               # --user-agent-suffix my-crawler
@@ -80,7 +80,7 @@ response = lightpanda.fetch(
 )
 ```
 
-Errors raise `lightpanda.LightpandaError` with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
+Errors raise `subprocess.CalledProcessError`; Lightpanda prints the reason to stderr. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
 
 ### Using Playwright or Puppeteer
 
@@ -117,9 +117,10 @@ proc = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
 
 ```python
 import json
+import subprocess
 import lightpanda
 
-proc = lightpanda.mcp()
+proc = lightpanda.mcp(stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
 proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\n')
 proc.stdin.flush()

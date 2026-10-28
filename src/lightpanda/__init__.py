@@ -1,15 +1,17 @@
 import html
 import json
-import subprocess
-from pathlib import Path
-from typing import Literal, Any, IO
 import os
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import IO, Any, Literal
 
-__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Response", "LightpandaError", "BINARY"]
+__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Result", "BINARY"]
 
 os.environ.setdefault("LIGHTPANDA_DISABLE_TELEMETRY", "true")
 
 BINARY = str(next((Path(__file__).parent / "bin").glob("lightpanda-*")))
+
 
 LogLevel = Literal["debug", "info", "warn", "error", "fatal"]
 DumpFormat = Literal[
@@ -45,46 +47,17 @@ SearchEngine = Literal["auto", "brave", "tavily", "exa", "keenable"]
 Verbosity = Literal["low", "medium", "high"]
 
 
-class LightpandaError(RuntimeError):
-    """Raised when the Lightpanda binary exits with a non-zero status."""
-
-    def __init__(self, returncode: int, stdout: bytes, stderr: str) -> None:
-        super().__init__(f"lightpanda failed (exit code {returncode}): {stderr}")
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
-
-
-def build_cmd(*args, **options):
-    cmd = [BINARY, *args]
-    for key, value in options.items():
-        flag = f"--{key.replace('_', '-')}"
-        for item in value if isinstance(value, (list, tuple)) else [value]:
-            if item is True:
-                cmd.append(flag)
-            elif item is not None and item is not False:
-                cmd += [flag, str(item)]
-    return cmd
-
-
-def run_cmd(cmd: list[str], input: bytes | None = None) -> bytes:
-    result = subprocess.run(cmd, input=input, capture_output=True)
-    if result.returncode:
-        raise LightpandaError(result.returncode, result.stdout, result.stderr.decode(errors="replace"))
-    return result.stdout
-
-
-class Response:
-    def __init__(self, content: bytes) -> None:
-        self.content = content
+@dataclass
+class Result:
+    stdout: bytes
 
     @property
     def text(self) -> str:
-        return self.content.decode("utf-8", errors="replace")
+        return self.stdout.decode("utf-8", errors="replace").strip()
 
     @property
-    def html(self) -> str:
-        return self.text
+    def bytes(self) -> bytes:
+        return self.stdout
 
     def json(self):
         text = self.text
@@ -95,6 +68,55 @@ class Response:
             if "<pre>" not in text:
                 raise
             return json.loads(html.unescape(text.split("<pre>")[1].split("</pre>")[0]))
+
+
+@dataclass
+class Option:
+    flag: str
+    value: Any
+
+    def __iter__(self):
+        values = self.value
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+        for value in values:
+            if value is not None:
+                yield from (self.flag, str(value))
+
+
+@dataclass
+class Flag:
+    flag: str
+    set: bool | None = True
+
+    def __iter__(self):
+        if self.set:
+            yield self.flag
+
+
+class Command:
+    def __init__(self, binary: str, *args: str, **options: Any) -> None:
+        self.binary = binary
+        self.args = args
+        self.options = options
+
+    @property
+    def argv(self) -> list[str]:
+        cmd = [self.binary, *self.args]
+        for key, value in self.options.items():
+            flag = "--" + key.replace("_", "-")
+            if isinstance(value, bool):
+                cmd += Flag(flag, value)
+            else:
+                cmd += Option(flag, value)
+        return cmd
+
+    def run(self, input: bytes | None = None) -> Result:
+        proc = subprocess.run(self.argv, input=input, stdout=subprocess.PIPE, check=True)
+        return Result(proc.stdout)
+
+    def spawn(self, **popen: Any) -> subprocess.Popen:
+        return subprocess.Popen(self.argv, **popen)
 
 
 def fetch(
@@ -117,7 +139,7 @@ def fetch(
     http_proxy: str | None = None,
     http_timeout: int | None = None,
     **options: Any,
-) -> Response:
+) -> Result:
     """
     Fetch a page with an ephemeral Lightpanda browser.
 
@@ -146,21 +168,21 @@ def fetch(
             Underscores become dashes, True adds a bare flag and lists repeat the flag.
 
     Returns:
-        Response: A convenience wrapper around the raw output
+        Result: The output; read it with .text, .bytes or .json()
 
     Raises:
-        LightpandaError: If the browser exits with a non-zero status
+        subprocess.CalledProcessError: If the browser exits with a non-zero status
 
     Example:
-        >>> response = lightpanda.fetch("http://example.com")
-        >>> response.text
+        >>> result = lightpanda.fetch("http://example.com")
+        >>> result.text
     """
     urls = [url] if isinstance(url, str) else list(url)
-    if len(urls) > 1:
-        options.setdefault("json", True)
-    cmd = build_cmd(
+    cmd = Command(
+        BINARY,
         "fetch",
         *urls,
+        json=options.pop("json", len(urls) > 1),
         dump=dump,
         strip_mode=strip_mode,
         with_base=with_base,
@@ -179,7 +201,104 @@ def fetch(
         http_timeout=http_timeout,
         **options,
     )
-    return Response(run_cmd(cmd))
+    return cmd.run()
+
+
+def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Result:
+    """
+    Run a PandaScript and return what it printed.
+
+    Example:
+        >>> result = lightpanda.run('''
+        ...     const page = new Page();
+        ...     await page.goto("https://example.com");
+        ...     console.log(await page.evaluate("document.title"));
+        ... ''')
+        >>> result.text
+    """
+    cmd = Command(BINARY, "run", "-", log_level=log_level, **options)
+    return cmd.run(script.encode())
+
+
+def agent(
+    task: str,
+    *,
+    provider: Provider | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    url: str | None = None,
+    attach: str | list[str] | None = None,
+    effort: Effort | None = None,
+    search_engine: SearchEngine | None = None,
+    system_prompt: str | None = None,
+    save: str | None = None,
+    trace: str | None = None,
+    trace_results: bool = False,
+    verbosity: Verbosity | None = None,
+    log_level: LogLevel = "error",
+    **options: Any,
+) -> Result:
+    """
+    Let an AI agent browse to complete a task and return its answer.
+
+    The API key is read from the environment, e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY.
+
+    Args:
+        task: What the agent should do
+        provider: AI provider, auto-detected from the API key in the environment (optional)
+        model: Model name, defaults to a sensible one per provider (optional)
+        base_url: Override the provider's API URL, e.g. for a local Ollama server (optional)
+        url: Page to open before the first turn (optional)
+        attach: File(s) to give the model along with the task, a path or a list (optional)
+        effort: Reasoning effort — 'none', 'minimal', 'low', 'medium', 'high', 'xhigh' (default: "medium")
+        search_engine: Web search API for the agent's search tool — 'auto', 'brave', 'tavily', 'exa', 'keenable' (default: "auto")
+        system_prompt: Replace the default system prompt (optional)
+        save: Write a replayable PandaScript to this path instead of answering (optional)
+        trace: Write one JSON line per model and tool call to this path (optional)
+        trace_results: Also write each tool result to the trace file (default: False)
+        verbosity: Stderr chatter — 'low', 'medium', 'high' (optional)
+        log_level: Logging level (default: "error")
+        **options: Any other `lightpanda agent` CLI option, e.g. obey_robots=True.
+
+    Example:
+        >>> result = lightpanda.agent("What is the top story?", url="https://news.ycombinator.com")
+        >>> result.text
+    """
+    cmd = Command(
+        BINARY,
+        "agent",
+        task=task,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        url=url,
+        attach=attach,
+        effort=effort,
+        search_engine=search_engine,
+        system_prompt=system_prompt,
+        save=save,
+        trace=trace,
+        trace_results=trace_results,
+        verbosity=verbosity,
+        log_level=log_level,
+        **options,
+    )
+    return cmd.run()
+
+
+def version(check: bool = False) -> str:
+    """
+    Return the Lightpanda binary version string.
+
+    Args:
+        check: Check whether a newer Lightpanda release is available and how to update (default: False)
+
+    Example:
+        >>> print(lightpanda.version())
+        >>> print(lightpanda.version(check=True))
+    """
+    cmd = Command(BINARY, "version", check=check)
+    return cmd.run().text
 
 
 def serve(
@@ -226,11 +345,8 @@ def serve(
         >>> # Do your magic ✨
         >>> proc.kill()
     """
-    if "timeout" in options:
-        raise TypeError(
-            "serve() no longer accepts 'timeout': Lightpanda removed the --timeout option"
-        )
-    cmd = build_cmd(
+    cmd = Command(
+        BINARY,
         "serve",
         host=None if unix_socket else host,
         port=None if unix_socket else port,
@@ -245,9 +361,7 @@ def serve(
         http_timeout=http_timeout,
         **options,
     )
-    proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-    print(f"🐼 Running Lightpanda's CDP server... {{ pid: {proc.pid} }}")
-    return proc
+    return cmd.spawn(stdout=stdout, stderr=stderr)
 
 
 def mcp(
@@ -258,6 +372,7 @@ def mcp(
     host: str | None = None,
     port: int | None = None,
     cdp_port: int | None = None,
+    stdin: None | int | IO[Any] = None,
     stdout: None | int | IO[Any] = None,
     stderr: None | int | IO[Any] = None,
     **options: Any,
@@ -272,7 +387,8 @@ def mcp(
         host: Host to bind when `port` is set (default: "127.0.0.1")
         port: Serve MCP over HTTP on this port (POST JSON-RPC to /mcp) instead of stdio (optional)
         cdp_port: Also run a CDP server on this port, stdio mode only (optional)
-        stdout: Standard output file handle, HTTP mode only; stdio mode always pipes stdin/stdout (optional)
+        stdin: Standard input file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
+        stdout: Standard output file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
         stderr: Standard error file handle (optional)
         **options: Any other `lightpanda mcp` CLI option, e.g. http_session_timeout=300.
 
@@ -280,14 +396,15 @@ def mcp(
         subprocess.Popen: The process object for the MCP server
 
     Example:
-        >>> import json
-        >>> proc = lightpanda.mcp()
+        >>> import json, subprocess
+        >>> proc = lightpanda.mcp(stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         >>> proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\\n')
         >>> proc.stdin.flush()
         >>> print(json.loads(proc.stdout.readline()))
         >>> proc.kill()
     """
-    cmd = build_cmd(
+    cmd = Command(
+        BINARY,
         "mcp",
         host=host,
         port=port,
@@ -297,102 +414,4 @@ def mcp(
         http_timeout=http_timeout,
         **options,
     )
-    if port is None:
-        return subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr
-        )
-    return subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-
-
-def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Response:
-    """
-    Run a PandaScript and return what it printed.
-
-    Example:
-        >>> response = lightpanda.run('''
-        ...     const page = new Page();
-        ...     await page.goto("https://example.com");
-        ...     console.log(await page.evaluate("document.title"));
-        ... ''')
-        >>> response.text
-    """
-    return Response(run_cmd(build_cmd("run", "-", log_level=log_level, **options), script.encode()))
-
-
-def agent(
-    task: str,
-    *,
-    provider: Provider | None = None,
-    model: str | None = None,
-    base_url: str | None = None,
-    url: str | None = None,
-    attach: str | list[str] | None = None,
-    effort: Effort | None = None,
-    search_engine: SearchEngine | None = None,
-    system_prompt: str | None = None,
-    save: str | None = None,
-    trace: str | None = None,
-    trace_results: bool = False,
-    verbosity: Verbosity | None = None,
-    log_level: LogLevel = "error",
-    **options: Any,
-) -> Response:
-    """
-    Let an AI agent browse to complete a task and return its answer.
-
-    The API key is read from the environment, e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY.
-
-    Args:
-        task: What the agent should do
-        provider: AI provider, auto-detected from the API key in the environment (optional)
-        model: Model name, defaults to a sensible one per provider (optional)
-        base_url: Override the provider's API URL, e.g. for a local Ollama server (optional)
-        url: Page to open before the first turn (optional)
-        attach: File(s) to give the model along with the task, a path or a list (optional)
-        effort: Reasoning effort — 'none', 'minimal', 'low', 'medium', 'high', 'xhigh' (default: "medium")
-        search_engine: Web search API for the agent's search tool — 'auto', 'brave', 'tavily', 'exa', 'keenable' (default: "auto")
-        system_prompt: Replace the default system prompt (optional)
-        save: Write a replayable PandaScript to this path instead of answering (optional)
-        trace: Write one JSON line per model and tool call to this path (optional)
-        trace_results: Also write each tool result to the trace file (default: False)
-        verbosity: Stderr chatter — 'low', 'medium', 'high' (optional)
-        log_level: Logging level (default: "error")
-        **options: Any other `lightpanda agent` CLI option, e.g. obey_robots=True.
-
-    Example:
-        >>> response = lightpanda.agent("What is the top story?", url="https://news.ycombinator.com")
-        >>> response.text
-    """
-    cmd = build_cmd(
-        "agent",
-        task=task,
-        provider=provider,
-        model=model,
-        base_url=base_url,
-        url=url,
-        attach=attach,
-        effort=effort,
-        search_engine=search_engine,
-        system_prompt=system_prompt,
-        save=save,
-        trace=trace,
-        trace_results=trace_results,
-        verbosity=verbosity,
-        log_level=log_level,
-        **options,
-    )
-    return Response(run_cmd(cmd))
-
-
-def version(check: bool = False) -> str:
-    """
-    Return the Lightpanda binary version string.
-
-    Args:
-        check: Check whether a newer Lightpanda release is available and how to update (default: False)
-
-    Example:
-        >>> print(lightpanda.version())
-        >>> print(lightpanda.version(check=True))
-    """
-    return run_cmd(build_cmd("version", check=check)).decode().strip()
+    return cmd.spawn(stdin=stdin, stdout=stdout, stderr=stderr)
