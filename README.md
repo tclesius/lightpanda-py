@@ -1,6 +1,6 @@
 # lightpanda-py
 
-Embedded [Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation.
+[Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included.
 
 ## Installation
 
