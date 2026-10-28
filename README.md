@@ -80,7 +80,7 @@ result = lightpanda.fetch(
 )
 ```
 
-Errors raise `subprocess.CalledProcessError`; Lightpanda prints the reason to stderr. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
+Errors raise `subprocess.CalledProcessError` with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
 
 ### Using Playwright or Puppeteer
 

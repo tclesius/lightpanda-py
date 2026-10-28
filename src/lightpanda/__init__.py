@@ -50,6 +50,7 @@ Verbosity = Literal["low", "medium", "high"]
 @dataclass
 class Result:
     stdout: bytes
+    stderr: bytes = b""
 
     @property
     def text(self) -> str:
@@ -112,8 +113,8 @@ class Command:
         return cmd
 
     def run(self, input: bytes | None = None) -> Result:
-        proc = subprocess.run(self.argv, input=input, stdout=subprocess.PIPE, check=True)
-        return Result(proc.stdout)
+        proc = subprocess.run(self.argv, input=input, capture_output=True, check=True)
+        return Result(proc.stdout, proc.stderr)
 
     def spawn(self, **popen: Any) -> subprocess.Popen:
         return subprocess.Popen(self.argv, **popen)

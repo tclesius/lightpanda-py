@@ -113,11 +113,11 @@ def test_run(url):
     assert lightpanda.run(script).text.strip() == "Hello"
 
 
-def test_agent(tmp_path, monkeypatch, capfd):
+def test_agent(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     attachment = tmp_path / "notes.txt"
     attachment.write_text("notes")
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
         lightpanda.agent(
             "Say hi",
             provider="openai_compatible",
@@ -133,7 +133,7 @@ def test_agent(tmp_path, monkeypatch, capfd):
             trace_results=True,
             verbosity="low",
         )
-    assert "Missing API key" in capfd.readouterr().err
+    assert b"Missing API key" in exc_info.value.stderr
 
 
 def test_version_check():
