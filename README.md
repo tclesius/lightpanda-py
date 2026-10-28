@@ -1,8 +1,10 @@
 # lightpanda-py
 
-[Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included.
+<img width="200" alt="panda" src="https://github.com/user-attachments/assets/9564d2f1-5096-4dc3-9c13-384b8c6e5818" />
 
-## Installation
+[Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included. The whole thing is one file of about 300 lines: `fetch`, `serve` and `mcp` are the CLI commands, and keyword arguments are the CLI flags.
+
+### Installation
 
 ```bash
 pip install lightpanda-py
@@ -10,47 +12,48 @@ pip install lightpanda-py
 uv add lightpanda-py
 ```
 
-No extra setup - the Lightpanda binary is bundled in the package.
-
-## Usage
-
-### Fetch
-
-Spin up an ephemeral browser to fetch a page:
+### Example usage
 
 ```python
 import lightpanda
 
-response = lightpanda.fetch("https://example.com")
-print(response.text)
-
-# JSON APIs
-response = lightpanda.fetch("https://httpbin.org/ip")
-data = response.json()
-
-# Markdown output
 response = lightpanda.fetch("https://example.com", dump="markdown")
+print(response.text)
+```
 
-# Strip JS/CSS from output
-response = lightpanda.fetch("https://example.com", strip_mode=["js", "css"])
+### Output formats
 
-# Keep only the main content, like a reader mode
-response = lightpanda.fetch("https://example.com", dump="markdown", strip_mode="clutter")
+```python
+import lightpanda
 
-# Wait for network idle before dump
-response = lightpanda.fetch("https://example.com", wait_until="networkidle")
-
-# Wait for an element, then dump only that element
-response = lightpanda.fetch("https://example.com", wait_selector="h1", dump_selector="h1")
+html = lightpanda.fetch("https://example.com").text
+markdown = lightpanda.fetch("https://example.com", dump="markdown").text
+data = lightpanda.fetch("https://httpbin.org/ip").json()
 
 # JSON-LD, OpenGraph, Twitter card and meta tags
-data = lightpanda.fetch("https://example.com", dump="structured_data").json()
+meta = lightpanda.fetch("https://example.com", dump="structured_data").json()
 
-# Text-only rendering as PNG or PDF (raw bytes)
+# Text-only rendering as PNG or PDF
 png = lightpanda.fetch("https://example.com", dump="png").content
 ```
 
-Get the HTTP status, headers and page diagnostics along with the dump, or fetch several URLs at once:
+### Waiting and stripping
+
+```python
+import lightpanda
+
+# Wait for network idle, or for an element to appear
+lightpanda.fetch("https://example.com", wait_until="networkidle")
+lightpanda.fetch("https://example.com", wait_selector="h1", dump_selector="h1")
+
+# Drop scripts and styles, or keep only the main content
+lightpanda.fetch("https://example.com", strip_mode=["js", "css"])
+lightpanda.fetch("https://example.com", dump="markdown", strip_mode="clutter")
+```
+
+### Status and multiple URLs
+
+`json=True` adds the HTTP status, headers and page diagnostics:
 
 ```python
 import lightpanda
@@ -63,7 +66,9 @@ for result in results["results"]:
     print(result["url"], result["http_status"])
 ```
 
-Every other `lightpanda` CLI option can be passed as a keyword argument. Underscores become dashes, `True` adds a bare flag and lists repeat the flag:
+### Any CLI flag
+
+Underscores become dashes, `True` adds a bare flag, and lists repeat the flag:
 
 ```python
 import lightpanda
@@ -77,43 +82,15 @@ response = lightpanda.fetch(
 )
 ```
 
-A non-zero exit of the browser raises `lightpanda.LightpandaError` (a `RuntimeError`) with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx responses.
+Errors raise `lightpanda.LightpandaError` with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
 
-### CDP Server
-
-Start a CDP server to use with Playwright, Puppeteer, or any CDP client:
-
-```python
-import lightpanda
-
-proc = lightpanda.serve(host="127.0.0.1", port=9222)
-# 🐼 Running Lightpanda's CDP server... { pid: 12345 }
-
-# Connect with your favorite CDP client...
-
-proc.kill()
-```
-
-Write browser logs to files:
-
-```python
-import lightpanda
-
-stdout = open("lightpanda.out.log", "w")
-stderr = open("lightpanda.err.log", "w")
-
-proc = lightpanda.serve(stdout=stdout, stderr=stderr)
-
-proc.kill()
-```
-
-With Playwright:
+### Using Playwright or Puppeteer
 
 ```python
 import lightpanda
 from playwright.sync_api import sync_playwright
 
-proc = lightpanda.serve()
+proc = lightpanda.serve(host="127.0.0.1", port=9222)
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
@@ -125,26 +102,24 @@ with sync_playwright() as p:
 proc.kill()
 ```
 
-Serve WebDriver BiDi next to CDP, or listen on a Unix socket:
-
 ```python
 import lightpanda
 
+# Write logs to files
+proc = lightpanda.serve(stdout=open("lightpanda.out.log", "w"), stderr=open("lightpanda.err.log", "w"))
+
 # CDP on / and WebDriver BiDi on /session, same port
 proc = lightpanda.serve(protocol=["cdp", "webdriver"])
-proc.kill()
 
 # CDP over a Unix-domain socket instead of TCP
 proc = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
-proc.kill()
 ```
 
-### MCP Server
-
-Start a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio:
+### Running an MCP server
 
 ```python
-import lightpanda, json
+import json
+import lightpanda
 
 proc = lightpanda.mcp()
 
@@ -153,62 +128,27 @@ proc.stdin.flush()
 print(json.loads(proc.stdout.readline()))  # list of available tools
 
 proc.kill()
-```
 
-Or serve MCP over HTTP (clients `POST` JSON-RPC to `/mcp`):
-
-```python
-import lightpanda
-
+# Or over HTTP, clients POST JSON-RPC to /mcp
 proc = lightpanda.mcp(port=8080)
-
-proc.kill()
 ```
 
-### Version
+### Running tests
 
-```python
-import lightpanda
-
-print(lightpanda.version())
-```
-
-## Development
-
-The bundled Lightpanda browser version is pinned in `.browser-version`.
-
-Download the pinned browser for local development:
-
-```bash
-scripts/get-browser
-```
-
-By default this downloads the macOS arm64 binary. To use another asset or browser version:
+The bundled browser version is pinned in `.browser-version`. Download it for your platform, then run pytest:
 
 ```bash
 scripts/get-browser lightpanda-x86_64-linux
-scripts/get-browser lightpanda-aarch64-macos 1.0.1
+uv run pytest
 ```
 
-Available raw browser assets:
+Available platforms:
 
-- `lightpanda-aarch64-macos` - macOS arm64
+- `lightpanda-aarch64-macos` - macOS arm64 (default)
 - `lightpanda-x86_64-macos` - macOS x86_64
 - `lightpanda-aarch64-linux` - Linux arm64
 - `lightpanda-x86_64-linux` - Linux x86_64
 
-### Tests
-
-The integration tests run the real browser against a local HTTP server, so download the browser for your platform first:
-
-```bash
-scripts/get-browser lightpanda-x86_64-linux
-```
-
-```bash
-uv run pytest
-```
-
-## License
+### License
 
 MIT
