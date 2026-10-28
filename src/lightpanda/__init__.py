@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal, Any, IO
 import os
 
-__all__ = ["fetch", "serve", "mcp", "run", "version", "Response", "LightpandaError", "BINARY"]
+__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Response", "LightpandaError", "BINARY"]
 
 os.environ.setdefault("LIGHTPANDA_DISABLE_TELEMETRY", "true")
 
@@ -26,6 +26,23 @@ WaitUntil = Literal[
     "load", "domcontentloaded", "networkalmostidle", "networkidle", "done"
 ]
 Protocol = Literal["cdp", "webdriver"]
+Provider = Literal[
+    "anthropic",
+    "openai",
+    "gemini",
+    "huggingface",
+    "vercel",
+    "mistral",
+    "openrouter",
+    "ollama",
+    "llama_cpp",
+    "vertex",
+    "codex",
+    "openai_compatible",
+]
+Effort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+SearchEngine = Literal["auto", "brave", "tavily", "exa", "keenable"]
+Verbosity = Literal["low", "medium", "high"]
 
 
 class LightpandaError(RuntimeError):
@@ -302,11 +319,80 @@ def run(script: str, *, log_level: LogLevel = "error", **options: Any) -> Respon
     return Response(run_cmd(build_cmd("run", "-", log_level=log_level, **options), script.encode()))
 
 
-def version() -> str:
+def agent(
+    task: str,
+    *,
+    provider: Provider | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    url: str | None = None,
+    attach: str | list[str] | None = None,
+    effort: Effort | None = None,
+    search_engine: SearchEngine | None = None,
+    system_prompt: str | None = None,
+    save: str | None = None,
+    trace: str | None = None,
+    trace_results: bool = False,
+    verbosity: Verbosity | None = None,
+    log_level: LogLevel = "error",
+    **options: Any,
+) -> Response:
+    """
+    Let an AI agent browse to complete a task and return its answer.
+
+    The API key is read from the environment, e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY.
+
+    Args:
+        task: What the agent should do
+        provider: AI provider, auto-detected from the API key in the environment (optional)
+        model: Model name, defaults to a sensible one per provider (optional)
+        base_url: Override the provider's API URL, e.g. for a local Ollama server (optional)
+        url: Page to open before the first turn (optional)
+        attach: File(s) to give the model along with the task, a path or a list (optional)
+        effort: Reasoning effort — 'none', 'minimal', 'low', 'medium', 'high', 'xhigh' (default: "medium")
+        search_engine: Web search API for the agent's search tool — 'auto', 'brave', 'tavily', 'exa', 'keenable' (default: "auto")
+        system_prompt: Replace the default system prompt (optional)
+        save: Write a replayable PandaScript to this path instead of answering (optional)
+        trace: Write one JSON line per model and tool call to this path (optional)
+        trace_results: Also write each tool result to the trace file (default: False)
+        verbosity: Stderr chatter — 'low', 'medium', 'high' (optional)
+        log_level: Logging level (default: "error")
+        **options: Any other `lightpanda agent` CLI option, e.g. obey_robots=True.
+
+    Example:
+        >>> response = lightpanda.agent("What is the top story?", url="https://news.ycombinator.com")
+        >>> response.text
+    """
+    cmd = build_cmd(
+        "agent",
+        task=task,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        url=url,
+        attach=attach,
+        effort=effort,
+        search_engine=search_engine,
+        system_prompt=system_prompt,
+        save=save,
+        trace=trace,
+        trace_results=trace_results,
+        verbosity=verbosity,
+        log_level=log_level,
+        **options,
+    )
+    return Response(run_cmd(cmd))
+
+
+def version(check: bool = False) -> str:
     """
     Return the Lightpanda binary version string.
 
+    Args:
+        check: Check whether a newer Lightpanda release is available and how to update (default: False)
+
     Example:
         >>> print(lightpanda.version())
+        >>> print(lightpanda.version(check=True))
     """
-    return run_cmd(build_cmd("version")).decode().strip()
+    return run_cmd(build_cmd("version", check=check)).decode().strip()

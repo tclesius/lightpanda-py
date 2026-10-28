@@ -111,3 +111,30 @@ def test_run(url):
         console.log(await page.evaluate("document.querySelector('h1').textContent"));
     '''
     assert lightpanda.run(script).text.strip() == "Hello"
+
+
+def test_agent(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    attachment = tmp_path / "notes.txt"
+    attachment.write_text("notes")
+    with pytest.raises(lightpanda.LightpandaError) as exc_info:
+        lightpanda.agent(
+            "Say hi",
+            provider="openai_compatible",
+            model="none",
+            base_url="http://127.0.0.1:1/v1",
+            url="http://127.0.0.1:1/",
+            attach=[str(attachment), str(attachment)],
+            effort="low",
+            search_engine="keenable",
+            system_prompt="Be brief",
+            save=str(tmp_path / "script.js"),
+            trace=str(tmp_path / "trace.jsonl"),
+            trace_results=True,
+            verbosity="low",
+        )
+    assert "Missing API key" in exc_info.value.stderr
+
+
+def test_version_check():
+    assert lightpanda.version() in lightpanda.version(check=True)
