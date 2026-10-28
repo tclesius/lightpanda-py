@@ -2,7 +2,7 @@
 
 <img width="200" alt="panda" src="https://github.com/user-attachments/assets/9564d2f1-5096-4dc3-9c13-384b8c6e5818" />
 
-[Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included. The whole thing is one file of about 300 lines: `fetch`, `serve` and `mcp` are the CLI commands, and keyword arguments are the CLI flags.
+[Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included.
 
 ### Installation
 
