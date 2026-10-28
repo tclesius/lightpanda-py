@@ -51,7 +51,7 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightpanda"]
-artifacts = ["src/lightpanda/bin/lightpanda-*"]
+artifacts = ["src/lightpanda/bin/*"]
 
 [dependency-groups]
 dev = [
