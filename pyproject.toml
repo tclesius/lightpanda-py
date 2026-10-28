@@ -32,3 +32,8 @@ source = "vcs"
 [tool.hatch.build.targets.wheel]
 packages = ["src/lightpanda"]
 artifacts = ["src/lightpanda/bin/lightpanda-*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

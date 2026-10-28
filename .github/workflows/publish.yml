@@ -16,10 +16,13 @@ jobs:
             platform_tag: manylinux_2_35_x86_64
           - os: ubuntu-24.04-arm
             binary: lightpanda-aarch64-linux
-            platform_tag: manylinux_2_35_aarch64
+            platform_tag: manylinux_2_38_aarch64
+          - os: macos-15-intel
+            binary: lightpanda-x86_64-macos
+            platform_tag: macosx_14_0_x86_64
           - os: macos-latest
             binary: lightpanda-aarch64-macos
-            platform_tag: macosx_11_0_arm64
+            platform_tag: macosx_14_0_arm64
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,9 +31,10 @@ jobs:
       - uses: astral-sh/setup-uv@v4
 
       - name: Download Lightpanda binary
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: scripts/get-browser "${{ matrix.binary }}"
+
+      - name: Run integration tests
+        run: uv run pytest
 
       - name: Build wheel
         run: uv build --wheel

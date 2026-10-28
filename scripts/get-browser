@@ -16,9 +16,8 @@ version="${2:-$(cat .browser-version)}"
 mkdir -p src/lightpanda/bin
 rm -f src/lightpanda/bin/lightpanda-*
 
-gh release download "$version" \
-  --repo lightpanda-io/browser \
-  --pattern "$asset" \
-  --dir src/lightpanda/bin
+curl --fail --silent --show-error --location \
+  --output "src/lightpanda/bin/$asset" \
+  "https://github.com/lightpanda-io/browser/releases/download/$version/$asset"
 
 chmod +x "src/lightpanda/bin/$asset"

@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Integration tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: lightpanda-x86_64-linux
+            python: "3.10"
+          - os: ubuntu-latest
+            binary: lightpanda-x86_64-linux
+            python: "3.14"
+          - os: ubuntu-24.04-arm
+            binary: lightpanda-aarch64-linux
+            python: "3.14"
+          - os: macos-15-intel
+            binary: lightpanda-x86_64-macos
+            python: "3.14"
+          - os: macos-latest
+            binary: lightpanda-aarch64-macos
+            python: "3.14"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Download Lightpanda binary
+        run: scripts/get-browser "${{ matrix.binary }}"
+
+      - name: Run integration tests
+        run: uv run --python ${{ matrix.python }} pytest
