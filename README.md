@@ -8,8 +8,6 @@
 
 ```bash
 pip install lightpanda-py
-# or
-uv add lightpanda-py
 ```
 
 ### Example usage
