@@ -1,12 +1,32 @@
 [project]
 name = "lightpanda-py"
 dynamic = ["version"]
-description = "Python wrapper for Lightpanda browser with CDP server and Playwright integration for lightweight web scraping and automation"
+description = "Minimal Lightpanda headless browser for Python: one file, zero dependencies, browser bundled"
 readme = "README.md"
+license = "MIT"
 authors = [{ name = "Tom Clesius", email = "tomclesius@gmail.com" }]
 requires-python = ">=3.10"
 dependencies = []
+keywords = [
+    "lightpanda",
+    "headless browser",
+    "web scraping",
+    "cdp",
+    "playwright",
+    "puppeteer",
+    "mcp",
+    "ai agents",
+    "markdown",
+]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -21,7 +41,7 @@ Repository = "https://github.com/tclesius/lightpanda-py"
 Issues = "https://github.com/tclesius/lightpanda-py/issues"
 
 [build-system]
-requires = ["hatchling>=1.21.0", "hatch-vcs"]
+requires = ["hatchling>=1.27.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
