@@ -9,7 +9,7 @@ Fetch pages as HTML, Markdown or structured data, run scripts, let an AI agent b
 ### Installation
 
 ```bash
-pip install lightpanda-py
+uv add lightpanda-py
 ```
 
 ### Example usage
@@ -131,6 +131,22 @@ with lightpanda.mcp() as mcp:
 # Or over HTTP, clients POST JSON-RPC to mcp.endpoint (http://127.0.0.1:8080/mcp)
 with lightpanda.mcp(port=8080) as mcp:
     ...
+```
+
+### Scraping examples
+
+Self-contained [uv scripts](https://docs.astral.sh/uv/guides/scripts/) in [`examples/`](examples), no install needed:
+
+- [`hacker_news.py`](examples/hacker_news.py) - extract the Hacker News front page into a list of stories with a PandaScript
+- [`quotes.py`](examples/quotes.py) - click through a JavaScript-rendered, paginated site with Playwright
+- [`docs_to_markdown.py`](examples/docs_to_markdown.py) - fetch several pages as clean, size-capped Markdown for an LLM
+- [`ask_agent.py`](examples/ask_agent.py) - let an AI agent browse a site and answer a question
+
+```bash
+uv run examples/hacker_news.py
+
+# Or without cloning the repo
+uv run https://raw.githubusercontent.com/tclesius/lightpanda-py/main/examples/hacker_news.py
 ```
 
 ### Running tests
