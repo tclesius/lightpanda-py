@@ -1,7 +1,7 @@
 [project]
 name = "lightpanda-py"
 dynamic = ["version"]
-description = "Minimal Lightpanda headless browser for Python: one file, zero dependencies, browser bundled"
+description = "Lightpanda for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Tom Clesius", email = "tomclesius@gmail.com" }]

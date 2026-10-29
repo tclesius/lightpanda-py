@@ -4,6 +4,8 @@
 
 [Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included.
 
+Fetch pages as HTML, Markdown or structured data, run scripts, let an AI agent browse, or start a CDP server for Playwright and Puppeteer and an MCP server for your agents.
+
 ### Installation
 
 ```bash
@@ -15,8 +17,8 @@ pip install lightpanda-py
 ```python
 import lightpanda
 
-response = lightpanda.fetch("https://example.com", dump="markdown")
-print(response.text)
+result = lightpanda.fetch("https://example.com", dump="markdown")
+print(result.text)
 ```
 
 ### Output formats
@@ -32,7 +34,7 @@ data = lightpanda.fetch("https://httpbin.org/ip").json()
 meta = lightpanda.fetch("https://example.com", dump="structured_data").json()
 
 # Text-only rendering as PNG or PDF
-png = lightpanda.fetch("https://example.com", dump="png").content
+png = lightpanda.fetch("https://example.com", dump="png").bytes
 ```
 
 ### Waiting and stripping
@@ -71,7 +73,7 @@ Underscores become dashes, `True` adds a bare flag, and lists repeat the flag:
 ```python
 import lightpanda
 
-response = lightpanda.fetch(
+result = lightpanda.fetch(
     "https://example.com",
     http_header=["Authorization: Bearer token"],  # --http-header ...
     user_agent_suffix="my-crawler",               # --user-agent-suffix my-crawler
@@ -80,7 +82,7 @@ response = lightpanda.fetch(
 )
 ```
 
-Errors raise `lightpanda.LightpandaError` with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
+Errors raise `lightpanda.Error`; its message is the browser's stderr and `.code` the exit status. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
 
 ### Using Playwright or Puppeteer
 
@@ -88,47 +90,38 @@ Errors raise `lightpanda.LightpandaError` with `returncode`, `stdout` and `stder
 import lightpanda
 from playwright.sync_api import sync_playwright
 
-proc = lightpanda.serve(host="127.0.0.1", port=9222)
-
-with sync_playwright() as p:
-    browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+with lightpanda.serve(host="127.0.0.1", port=9222) as cdp, sync_playwright() as p:
+    browser = p.chromium.connect_over_cdp(cdp.endpoint)
     page = browser.new_page()
     page.goto("https://example.com")
     print(page.content())
     browser.close()
-
-proc.kill()
 ```
 
 ```python
 import lightpanda
 
 # Write logs to files
-proc = lightpanda.serve(stdout=open("lightpanda.out.log", "w"), stderr=open("lightpanda.err.log", "w"))
+server = lightpanda.serve(stdout=open("lightpanda.out.log", "w"), stderr=open("lightpanda.err.log", "w"))
 
 # CDP on / and WebDriver BiDi on /session, same port
-proc = lightpanda.serve(protocol=["cdp", "webdriver"])
+server = lightpanda.serve(protocol=["cdp", "webdriver"])
 
 # CDP over a Unix-domain socket instead of TCP
-proc = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
+server = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
 ```
 
 ### Running an MCP server
 
 ```python
-import json
 import lightpanda
 
-proc = lightpanda.mcp()
+with lightpanda.mcp() as mcp:
+    print(mcp.request("tools/list"))  # list of available tools
 
-proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\n')
-proc.stdin.flush()
-print(json.loads(proc.stdout.readline()))  # list of available tools
-
-proc.kill()
-
-# Or over HTTP, clients POST JSON-RPC to /mcp
-proc = lightpanda.mcp(port=8080)
+# Or over HTTP, clients POST JSON-RPC to mcp.endpoint (http://127.0.0.1:8080/mcp)
+with lightpanda.mcp(port=8080) as mcp:
+    ...
 ```
 
 ### Running tests

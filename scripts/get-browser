@@ -14,11 +14,11 @@ asset="${1:-lightpanda-aarch64-macos}"
 version="${2:-$(cat .browser-version)}"
 
 mkdir -p src/lightpanda/bin
-rm -f src/lightpanda/bin/lightpanda-*
+rm -f src/lightpanda/bin/lightpanda src/lightpanda/bin/lightpanda-*
 
 curl --fail --silent --show-error --location \
-  --output "src/lightpanda/bin/$asset" \
+  --output src/lightpanda/bin/lightpanda \
   "https://github.com/lightpanda-io/browser/releases/download/$version/$asset" \
   --output src/lightpanda/bin/LICENSE "https://raw.githubusercontent.com/lightpanda-io/browser/$version/LICENSE"
 
-chmod +x "src/lightpanda/bin/$asset"
+chmod +x src/lightpanda/bin/lightpanda

@@ -25,27 +25,13 @@ def request_json(url, data=None, timeout=10):
             time.sleep(0.1)
 
 
-@pytest.fixture
-def spawn():
-    procs = []
-
-    def track(proc):
-        procs.append(proc)
-        return proc
-
-    yield track
-    for proc in procs:
-        proc.kill()
-        proc.wait()
-
-
 def test_version():
     pinned = (Path(__file__).parents[1] / ".browser-version").read_text().strip()
-    assert lightpanda.version() == pinned
+    assert lightpanda.version().text == pinned
 
 
 def test_fetch(url):
-    response = lightpanda.fetch(
+    result = lightpanda.fetch(
         url,
         dump="markdown",
         strip_mode=["js", "css"],
@@ -62,7 +48,7 @@ def test_fetch(url):
         fail_on_http_error=True,
         http_timeout=5000,
     )
-    assert "Hello" in response.text
+    assert "Hello" in result.text
 
 
 def test_fetch_multiple_urls(url):
@@ -70,38 +56,38 @@ def test_fetch_multiple_urls(url):
 
 
 def test_fetch_http_error(url):
-    with pytest.raises(lightpanda.LightpandaError) as exc_info:
+    with pytest.raises(lightpanda.Error) as exc_info:
         lightpanda.fetch(f"{url}/missing", fail_on_http_error=True)
-    assert isinstance(exc_info.value, RuntimeError)
-    assert exc_info.value.returncode == 22
+    assert exc_info.value.code == 22
 
 
-def test_serve(spawn, port):
-    spawn(
-        lightpanda.serve(
-            port=port,
-            advertise_host="localhost",
-            cdp_max_connections=4,
-            cdp_max_pending_connections=4,
-            protocol=["cdp", "webdriver"],
-            remote_allow_origins="*",
-            http_timeout=5000,
-        )
-    )
-    info = request_json(f"http://127.0.0.1:{port}/json/version")
-    assert info["webSocketDebuggerUrl"] == f"ws://localhost:{port}/"
+def test_serve(port):
+    with lightpanda.serve(
+        port=port,
+        advertise_host="localhost",
+        cdp_max_connections=4,
+        cdp_max_pending_connections=4,
+        protocol=["cdp", "webdriver"],
+        remote_allow_origins="*",
+        http_timeout=5000,
+    ) as server:
+        info = request_json(f"{server.endpoint}/json/version")
+        assert info["webSocketDebuggerUrl"] == f"ws://localhost:{port}/"
+    assert server.process.poll() is not None
 
 
-def test_mcp_stdio(spawn, port):
-    proc = spawn(lightpanda.mcp(http_timeout=5000, cdp_port=port))
-    proc.stdin.write(TOOLS_LIST + b"\n")
-    proc.stdin.flush()
-    assert json.loads(proc.stdout.readline())["result"]["tools"]
+def test_mcp_stdio(port):
+    with lightpanda.mcp(http_timeout=5000, cdp_port=port) as mcp:
+        assert mcp.request("tools/list")["tools"]
+        with pytest.raises(lightpanda.Error, match="Method not found") as exc_info:
+            mcp.request("nope")
+        assert exc_info.value.code == -32601
 
 
-def test_mcp_http(spawn, port):
-    spawn(lightpanda.mcp(host="127.0.0.1", port=port))
-    assert request_json(f"http://127.0.0.1:{port}/mcp", TOOLS_LIST)["result"]["tools"]
+def test_mcp_http(port):
+    with lightpanda.mcp(host="127.0.0.1", port=port) as mcp:
+        request_json(mcp.endpoint, TOOLS_LIST)  # wait until the server is up
+        assert mcp.request("tools/list")["tools"]
 
 
 def test_run(url):
@@ -117,7 +103,7 @@ def test_agent(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     attachment = tmp_path / "notes.txt"
     attachment.write_text("notes")
-    with pytest.raises(lightpanda.LightpandaError) as exc_info:
+    with pytest.raises(lightpanda.Error, match="Missing API key"):
         lightpanda.agent(
             "Say hi",
             provider="openai_compatible",
@@ -133,8 +119,7 @@ def test_agent(tmp_path, monkeypatch):
             trace_results=True,
             verbosity="low",
         )
-    assert "Missing API key" in exc_info.value.stderr
 
 
 def test_version_check():
-    assert lightpanda.version() in lightpanda.version(check=True)
+    assert lightpanda.version().text in lightpanda.version(check=True).text
