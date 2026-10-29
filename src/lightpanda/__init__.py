@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any, Literal, ParamSpec, TypeVar
 
-__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Result", "Server", "CDP", "MCP", "Error", "BINARY"]
+__all__ = ["BINARY", "CDP", "MCP", "Error", "Result", "agent", "fetch", "mcp", "run", "serve", "version"]
 
 os.environ.setdefault("LIGHTPANDA_DISABLE_TELEMETRY", "true")
 
@@ -17,8 +17,37 @@ BINARY = str(next((Path(__file__).parent / "bin").glob("lightpanda-*")))
 
 
 LogLevel = Literal["debug", "info", "warn", "error", "fatal"]
+DumpFormat = Literal[
+    "html",
+    "markdown",
+    "pdf",
+    "png",
+    "semantic_tree",
+    "semantic_tree_text",
+    "structured_data",
+]
 StripMode = Literal["clutter", "css", "js", "invisible", "shell", "ui"]
+WaitUntil = Literal[
+    "load", "domcontentloaded", "networkalmostidle", "networkidle", "done"
+]
 Protocol = Literal["cdp", "webdriver"]
+Provider = Literal[
+    "anthropic",
+    "openai",
+    "gemini",
+    "huggingface",
+    "vercel",
+    "mistral",
+    "openrouter",
+    "ollama",
+    "llama_cpp",
+    "vertex",
+    "codex",
+    "openai_compatible",
+]
+Effort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+SearchEngine = Literal["auto", "brave", "tavily", "exa", "keenable"]
+Verbosity = Literal["low", "medium", "high"]
 
 
 class Error(Exception):
@@ -161,22 +190,14 @@ class Command:
 def fetch(
     url: str | list[str],
     *,
-    dump: Literal[
-        "html",
-        "markdown",
-        "pdf",
-        "png",
-        "semantic_tree",
-        "semantic_tree_text",
-        "structured_data",
-    ] = "html",
+    dump: DumpFormat = "html",
     strip_mode: StripMode | str | list[StripMode] | None = None,
     with_base: bool = False,
     with_frames: bool = False,
     dump_selector: str | None = None,
     dump_max_bytes: int | None = None,
     wait_ms: int | None = None,
-    wait_until: Literal["load", "domcontentloaded", "networkalmostidle", "networkidle", "done"] | None = None,
+    wait_until: WaitUntil | None = None,
     wait_selector: str | None = None,
     wait_script: str | None = None,
     inject_script: str | list[str] | None = None,
@@ -280,31 +301,18 @@ def run(script: str, *, log_level: LogLevel = "error", **kwargs: Any) -> Result:
 def agent(
     task: str,
     *,
-    provider: Literal[
-        "anthropic",
-        "openai",
-        "gemini",
-        "huggingface",
-        "vercel",
-        "mistral",
-        "openrouter",
-        "ollama",
-        "llama_cpp",
-        "vertex",
-        "codex",
-        "openai_compatible",
-    ] | None = None,
+    provider: Provider | None = None,
     model: str | None = None,
     base_url: str | None = None,
     url: str | None = None,
     attach: str | list[str] | None = None,
-    effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None = None,
-    search_engine: Literal["auto", "brave", "tavily", "exa", "keenable"] | None = None,
+    effort: Effort | None = None,
+    search_engine: SearchEngine | None = None,
     system_prompt: str | None = None,
     save: str | None = None,
     trace: str | None = None,
     trace_results: bool = False,
-    verbosity: Literal["low", "medium", "high"] | None = None,
+    verbosity: Verbosity | None = None,
     log_level: LogLevel = "error",
     **kwargs: Any,
 ) -> Result:
