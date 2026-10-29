@@ -4,6 +4,8 @@
 
 [Lightpanda](https://github.com/lightpanda-io/browser) for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included.
 
+Fetch pages as HTML, Markdown or structured data, run scripts, let an AI agent browse, or start a CDP server for Playwright and Puppeteer and an MCP server for your agents.
+
 ### Installation
 
 ```bash
