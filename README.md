@@ -21,6 +21,15 @@ result = lightpanda.fetch("https://example.com", dump="markdown")
 print(result.text)
 ```
 
+### Command line
+
+The bundled browser is also available as the `lightpanda` command, with telemetry disabled by default:
+
+```bash
+lightpanda fetch --dump markdown https://example.com
+lightpanda serve --host 127.0.0.1 --port 9222
+```
+
 ### Output formats
 
 ```python
