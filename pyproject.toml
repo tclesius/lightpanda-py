@@ -35,6 +35,9 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 
+[project.scripts]
+lightpanda = "lightpanda.__main__:main"
+
 [project.urls]
 Homepage = "https://github.com/tclesius/lightpanda-py"
 Repository = "https://github.com/tclesius/lightpanda-py"

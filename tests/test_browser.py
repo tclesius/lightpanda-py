@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -28,6 +30,11 @@ def request_json(url, data=None, timeout=10):
 def test_version():
     pinned = (Path(__file__).parents[1] / ".browser-version").read_text().strip()
     assert lightpanda.version().text == pinned
+
+
+def test_cli(url):
+    result = subprocess.run([sys.executable, "-m", "lightpanda", "fetch", "--dump", "markdown", url], capture_output=True, check=True)
+    assert b"Hello" in result.stdout
 
 
 def test_fetch(url):
