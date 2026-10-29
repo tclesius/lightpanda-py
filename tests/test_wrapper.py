@@ -1,8 +1,9 @@
 import lightpanda
+from lightpanda._core import Command
 
 
 def test_command_argv():
-    cmd = lightpanda.Command(
+    cmd = Command(
         lightpanda.BINARY, "fetch", "url", strip_mode=["js", "css"], with_base=True, with_frames=False, dump=None,
         user_agent="x", json=True, obey_robots=False,
     )
@@ -27,3 +28,10 @@ def test_result_text_strips_only_newlines():
 
 def test_result_text_replaces_invalid_utf8():
     assert lightpanda.Result(b"\xff").text == "�"
+
+
+def test_command_env_disables_telemetry(monkeypatch):
+    monkeypatch.delenv("LIGHTPANDA_DISABLE_TELEMETRY", raising=False)
+    assert Command(lightpanda.BINARY).env["LIGHTPANDA_DISABLE_TELEMETRY"] == "true"
+    monkeypatch.setenv("LIGHTPANDA_DISABLE_TELEMETRY", "false")
+    assert Command(lightpanda.BINARY).env["LIGHTPANDA_DISABLE_TELEMETRY"] == "false"
