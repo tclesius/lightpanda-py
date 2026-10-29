@@ -1,12 +1,15 @@
+import functools
 import html
 import json
 import os
 import subprocess
+import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, Literal
+from typing import IO, Any, Literal, ParamSpec, TypeVar
 
-__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Result", "BINARY"]
+__all__ = ["fetch", "serve", "mcp", "run", "agent", "version", "Result", "Server", "CDP", "MCP", "Error", "BINARY"]
 
 os.environ.setdefault("LIGHTPANDA_DISABLE_TELEMETRY", "true")
 
@@ -14,37 +17,31 @@ BINARY = str(next((Path(__file__).parent / "bin").glob("lightpanda-*")))
 
 
 LogLevel = Literal["debug", "info", "warn", "error", "fatal"]
-DumpFormat = Literal[
-    "html",
-    "markdown",
-    "pdf",
-    "png",
-    "semantic_tree",
-    "semantic_tree_text",
-    "structured_data",
-]
 StripMode = Literal["clutter", "css", "js", "invisible", "shell", "ui"]
-WaitUntil = Literal[
-    "load", "domcontentloaded", "networkalmostidle", "networkidle", "done"
-]
 Protocol = Literal["cdp", "webdriver"]
-Provider = Literal[
-    "anthropic",
-    "openai",
-    "gemini",
-    "huggingface",
-    "vercel",
-    "mistral",
-    "openrouter",
-    "ollama",
-    "llama_cpp",
-    "vertex",
-    "codex",
-    "openai_compatible",
-]
-Effort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
-SearchEngine = Literal["auto", "brave", "tavily", "exa", "keenable"]
-Verbosity = Literal["low", "medium", "high"]
+
+
+class Error(Exception):
+    def __init__(self, message: str | bytes, code: int | None = None) -> None:
+        if isinstance(message, bytes):
+            message = message.decode(errors="replace").strip()
+        super().__init__(message)
+        self.code = code
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def reraise(func: Callable[P, R]) -> Callable[P, R]:
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return func(*args, **kwargs)
+        except subprocess.CalledProcessError as e:
+            raise Error(e.stderr, e.returncode) from e
+
+    return wrapper
 
 
 @dataclass
@@ -52,9 +49,12 @@ class Result:
     stdout: bytes
     stderr: bytes = b""
 
+    def __str__(self) -> str:
+        return self.text
+
     @property
     def text(self) -> str:
-        return self.stdout.decode("utf-8", errors="replace").strip()
+        return self.stdout.decode("utf-8", errors="replace").strip("\n")
 
     @property
     def bytes(self) -> bytes:
@@ -69,6 +69,50 @@ class Result:
             if "<pre>" not in text:
                 raise
             return json.loads(html.unescape(text.split("<pre>")[1].split("</pre>")[0]))
+
+
+class Server:
+    def __init__(self, process: subprocess.Popen, endpoint: str | None = None) -> None:
+        self.process = process
+        self.endpoint = endpoint
+
+    def stop(self, timeout: float = 5) -> None:
+        self.process.terminate()
+        try:
+            self.process.wait(timeout)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.stop()
+
+
+class CDP(Server):
+    pass
+
+
+class MCP(Server):
+    def request(self, method: str, params: dict[str, Any] | None = None) -> Any:
+        message = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode()
+        if self.endpoint:
+            req = urllib.request.Request(self.endpoint, message, {"Content-Type": "application/json"})
+            with urllib.request.urlopen(req) as resp:
+                response = json.load(resp)
+        else:
+            assert self.process.stdin and self.process.stdout
+            self.process.stdin.write(message + b"\n")
+            self.process.stdin.flush()
+            line = self.process.stdout.readline()
+            if not line:
+                raise Error("MCP server exited")
+            response = json.loads(line)
+        if "error" in response:
+            raise Error(response["error"]["message"], response["error"]["code"])
+        return response["result"]
 
 
 @dataclass
@@ -112,25 +156,27 @@ class Command:
                 cmd += Option(flag, value)
         return cmd
 
-    def run(self, input: bytes | None = None) -> Result:
-        proc = subprocess.run(self.argv, input=input, capture_output=True, check=True)
-        return Result(proc.stdout, proc.stderr)
 
-    def popen(self, **kwargs: Any) -> subprocess.Popen:
-        return subprocess.Popen(self.argv, **kwargs)
-
-
+@reraise
 def fetch(
     url: str | list[str],
     *,
-    dump: DumpFormat = "html",
+    dump: Literal[
+        "html",
+        "markdown",
+        "pdf",
+        "png",
+        "semantic_tree",
+        "semantic_tree_text",
+        "structured_data",
+    ] = "html",
     strip_mode: StripMode | str | list[StripMode] | None = None,
     with_base: bool = False,
     with_frames: bool = False,
     dump_selector: str | None = None,
     dump_max_bytes: int | None = None,
     wait_ms: int | None = None,
-    wait_until: WaitUntil | None = None,
+    wait_until: Literal["load", "domcontentloaded", "networkalmostidle", "networkidle", "done"] | None = None,
     wait_selector: str | None = None,
     wait_script: str | None = None,
     inject_script: str | list[str] | None = None,
@@ -172,7 +218,7 @@ def fetch(
         Result: The output; read it with .text, .bytes or .json()
 
     Raises:
-        subprocess.CalledProcessError: If the browser exits with a non-zero status
+        lightpanda.Error: If the browser exits with a non-zero status; .code is the exit status
 
     Example:
         >>> result = lightpanda.fetch("http://example.com")
@@ -202,9 +248,11 @@ def fetch(
         http_timeout=http_timeout,
         **kwargs,
     )
-    return cmd.run()
+    proc = subprocess.run(cmd.argv, capture_output=True, check=True)
+    return Result(proc.stdout, proc.stderr)
 
 
+@reraise
 def run(script: str, *, log_level: LogLevel = "error", **kwargs: Any) -> Result:
     """
     Run a PandaScript and return what it printed.
@@ -217,25 +265,46 @@ def run(script: str, *, log_level: LogLevel = "error", **kwargs: Any) -> Result:
         ... ''')
         >>> result.text
     """
-    cmd = Command(BINARY, "run", "-", log_level=log_level, **kwargs)
-    return cmd.run(script.encode())
+    cmd = Command(
+        BINARY,
+        "run",
+        "-",
+        log_level=log_level,
+        **kwargs,
+    )
+    proc = subprocess.run(cmd.argv, input=script.encode(), capture_output=True, check=True)
+    return Result(proc.stdout, proc.stderr)
 
 
+@reraise
 def agent(
     task: str,
     *,
-    provider: Provider | None = None,
+    provider: Literal[
+        "anthropic",
+        "openai",
+        "gemini",
+        "huggingface",
+        "vercel",
+        "mistral",
+        "openrouter",
+        "ollama",
+        "llama_cpp",
+        "vertex",
+        "codex",
+        "openai_compatible",
+    ] | None = None,
     model: str | None = None,
     base_url: str | None = None,
     url: str | None = None,
     attach: str | list[str] | None = None,
-    effort: Effort | None = None,
-    search_engine: SearchEngine | None = None,
+    effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None = None,
+    search_engine: Literal["auto", "brave", "tavily", "exa", "keenable"] | None = None,
     system_prompt: str | None = None,
     save: str | None = None,
     trace: str | None = None,
     trace_results: bool = False,
-    verbosity: Verbosity | None = None,
+    verbosity: Literal["low", "medium", "high"] | None = None,
     log_level: LogLevel = "error",
     **kwargs: Any,
 ) -> Result:
@@ -284,22 +353,32 @@ def agent(
         log_level=log_level,
         **kwargs,
     )
-    return cmd.run()
+    proc = subprocess.run(cmd.argv, capture_output=True, check=True)
+    return Result(proc.stdout, proc.stderr)
 
 
-def version(check: bool = False) -> str:
+@reraise
+def version(check: bool = False) -> Result:
     """
-    Return the Lightpanda binary version string.
+    Return the Lightpanda binary version.
 
     Args:
         check: Check whether a newer Lightpanda release is available and how to update (default: False)
+
+    Returns:
+        Result: The output; read it with .text
 
     Example:
         >>> print(lightpanda.version())
         >>> print(lightpanda.version(check=True))
     """
-    cmd = Command(BINARY, "version", check=check)
-    return cmd.run().text
+    cmd = Command(
+        BINARY,
+        "version",
+        check=check,
+    )
+    proc = subprocess.run(cmd.argv, capture_output=True, check=True)
+    return Result(proc.stdout, proc.stderr)
 
 
 def serve(
@@ -318,7 +397,7 @@ def serve(
     stdout: None | int | IO[Any] = None,
     stderr: None | int | IO[Any] = None,
     **kwargs: Any,
-) -> subprocess.Popen:
+) -> CDP:
     """
     Start Lightpanda browser process with CDP server.
 
@@ -339,12 +418,15 @@ def serve(
         **kwargs: Any other `lightpanda serve` CLI option, e.g. user_agent="...",
             block_urls=["*doubleclick*"], watchdog_ms=60000.
     Returns:
-        subprocess.Popen: The process object for the Lightpanda browser
+        CDP: The running browser; connect to .endpoint, call .stop() or use it as a context manager
 
     Example:
-        >>> proc = lightpanda.serve(host='127.0.0.1', port=9222)
-        >>> # Do your magic ✨
-        >>> proc.kill()
+        >>> with lightpanda.serve(host='127.0.0.1', port=9222) as cdp:
+        ...     ...  # Do your magic ✨ with cdp.endpoint
+
+        >>> cdp = lightpanda.serve(host='127.0.0.1', port=9222)
+        >>> ...  # Do your magic ✨ with cdp.endpoint
+        >>> cdp.stop()
     """
     cmd = Command(
         BINARY,
@@ -362,7 +444,9 @@ def serve(
         http_timeout=http_timeout,
         **kwargs,
     )
-    return cmd.popen(stdout=stdout, stderr=stderr)
+    if unix_socket:
+        return CDP(subprocess.Popen(cmd.argv, stdout=stdout, stderr=stderr))
+    return CDP(subprocess.Popen(cmd.argv, stdout=stdout, stderr=stderr), f"http://{host}:{port}")
 
 
 def mcp(
@@ -370,14 +454,12 @@ def mcp(
     http_proxy: str | None = None,
     http_timeout: int | None = None,
     *,
-    host: str | None = None,
+    host: str = "127.0.0.1",
     port: int | None = None,
     cdp_port: int | None = None,
-    stdin: None | int | IO[Any] = None,
-    stdout: None | int | IO[Any] = None,
     stderr: None | int | IO[Any] = None,
     **kwargs: Any,
-) -> subprocess.Popen:
+) -> MCP:
     """
     Start Lightpanda MCP (Model Context Protocol) server, over stdio by default or over HTTP when `port` is set.
 
@@ -388,26 +470,24 @@ def mcp(
         host: Host to bind when `port` is set (default: "127.0.0.1")
         port: Serve MCP over HTTP on this port (POST JSON-RPC to /mcp) instead of stdio (optional)
         cdp_port: Also run a CDP server on this port, stdio mode only (optional)
-        stdin: Standard input file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
-        stdout: Standard output file handle, pass subprocess.PIPE to talk JSON-RPC in stdio mode (optional)
         stderr: Standard error file handle (optional)
         **kwargs: Any other `lightpanda mcp` CLI option, e.g. http_session_timeout=300.
 
     Returns:
-        subprocess.Popen: The process object for the MCP server
+        MCP: The running server; send JSON-RPC with .request(), call .stop() or use it as a context manager
 
     Example:
-        >>> import json, subprocess
-        >>> proc = lightpanda.mcp(stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        >>> proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\\n')
-        >>> proc.stdin.flush()
-        >>> print(json.loads(proc.stdout.readline()))
-        >>> proc.kill()
+        >>> with lightpanda.mcp() as mcp:
+        ...     print(mcp.request("tools/list"))
+
+        >>> mcp = lightpanda.mcp()
+        >>> print(mcp.request("tools/list"))
+        >>> mcp.stop()
     """
     cmd = Command(
         BINARY,
         "mcp",
-        host=host,
+        host=host if port else None,
         port=port,
         cdp_port=cdp_port,
         log_level=log_level,
@@ -415,4 +495,6 @@ def mcp(
         http_timeout=http_timeout,
         **kwargs,
     )
-    return cmd.popen(stdin=stdin, stdout=stdout, stderr=stderr)
+    if not port:
+        return MCP(subprocess.Popen(cmd.argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr))
+    return MCP(subprocess.Popen(cmd.argv, stderr=stderr), f"http://{host}:{port}/mcp")

@@ -17,5 +17,13 @@ def test_result_json():
     assert lightpanda.Result(b"<pre>{&quot;a&quot;: &quot;&lt;b&gt;&quot;}</pre>").json() == {"a": "<b>"}
 
 
+def test_result_str():
+    assert str(lightpanda.Result(b"hello\n")) == "hello"
+
+
+def test_result_text_strips_only_newlines():
+    assert lightpanda.Result(b"\n  x  \n").text == "  x  "
+
+
 def test_result_text_replaces_invalid_utf8():
     assert lightpanda.Result(b"\xff").text == "�"

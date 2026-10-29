@@ -80,7 +80,7 @@ result = lightpanda.fetch(
 )
 ```
 
-Errors raise `subprocess.CalledProcessError` with `returncode`, `stdout` and `stderr`. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
+Errors raise `lightpanda.Error`; its message is the browser's stderr and `.code` the exit status. Pass `fail_on_http_error=True` to also raise on HTTP 4xx/5xx.
 
 ### Using Playwright or Puppeteer
 
@@ -88,48 +88,38 @@ Errors raise `subprocess.CalledProcessError` with `returncode`, `stdout` and `st
 import lightpanda
 from playwright.sync_api import sync_playwright
 
-proc = lightpanda.serve(host="127.0.0.1", port=9222)
-
-with sync_playwright() as p:
-    browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+with lightpanda.serve(host="127.0.0.1", port=9222) as cdp, sync_playwright() as p:
+    browser = p.chromium.connect_over_cdp(cdp.endpoint)
     page = browser.new_page()
     page.goto("https://example.com")
     print(page.content())
     browser.close()
-
-proc.kill()
 ```
 
 ```python
 import lightpanda
 
 # Write logs to files
-proc = lightpanda.serve(stdout=open("lightpanda.out.log", "w"), stderr=open("lightpanda.err.log", "w"))
+server = lightpanda.serve(stdout=open("lightpanda.out.log", "w"), stderr=open("lightpanda.err.log", "w"))
 
 # CDP on / and WebDriver BiDi on /session, same port
-proc = lightpanda.serve(protocol=["cdp", "webdriver"])
+server = lightpanda.serve(protocol=["cdp", "webdriver"])
 
 # CDP over a Unix-domain socket instead of TCP
-proc = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
+server = lightpanda.serve(unix_socket="/tmp/lightpanda.sock")
 ```
 
 ### Running an MCP server
 
 ```python
-import json
-import subprocess
 import lightpanda
 
-proc = lightpanda.mcp(stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+with lightpanda.mcp() as mcp:
+    print(mcp.request("tools/list"))  # list of available tools
 
-proc.stdin.write(b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}\n')
-proc.stdin.flush()
-print(json.loads(proc.stdout.readline()))  # list of available tools
-
-proc.kill()
-
-# Or over HTTP, clients POST JSON-RPC to /mcp
-proc = lightpanda.mcp(port=8080)
+# Or over HTTP, clients POST JSON-RPC to mcp.endpoint (http://127.0.0.1:8080/mcp)
+with lightpanda.mcp(port=8080) as mcp:
+    ...
 ```
 
 ### Running tests
