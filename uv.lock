@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 
 [[package]]
@@ -34,6 +34,7 @@ wheels = [
 
 [[package]]
 name = "lightpanda-py"
+version = "0.4.0"
 source = { editable = "." }
 
 [package.dev-dependencies]
