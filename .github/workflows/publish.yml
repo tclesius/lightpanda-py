@@ -25,10 +25,11 @@ jobs:
             platform_tag: macosx_14_0_arm64
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v4
+
+      - name: Check version matches release tag
+        run: test "$(uv version --short)" = "${GITHUB_REF_NAME#v}"
 
       - name: Download Lightpanda binary
         run: scripts/get-browser "${{ matrix.binary }}"

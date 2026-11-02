@@ -1,6 +1,6 @@
 [project]
 name = "lightpanda-py"
-dynamic = ["version"]
+version = "0.4.0"
 description = "Lightpanda for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included."
 readme = "README.md"
 license = "MIT"
@@ -44,17 +44,12 @@ Repository = "https://github.com/tclesius/lightpanda-py"
 Issues = "https://github.com/tclesius/lightpanda-py/issues"
 
 [build-system]
-requires = ["hatchling>=1.27.0", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
 
-[tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.build.hooks.custom]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/lightpanda"]
-artifacts = ["src/lightpanda/bin/*"]
+[tool.uv.build-backend]
+module-name = "lightpanda"
+module-root = "src"
 
 [dependency-groups]
 dev = [
