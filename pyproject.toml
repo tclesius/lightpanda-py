@@ -1,6 +1,6 @@
 [project]
 name = "lightpanda-py"
-version = "0.4.0"
+version = "0.4.1"
 description = "Lightpanda for Python, a fast headless browser for AI agents and web automation. Zero dependencies, browser included."
 readme = "README.md"
 license = "MIT"
